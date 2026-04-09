@@ -6,5 +6,5 @@ locals {
         terraform = "true"
     }
     public_subnet_id = split(",",data.aws_ssm_parameter.public_subnet_ids.value)[0]
-    bastion_sg_id = data.aws_ssm_parameter.bastion_sg_id.value
+    bastion_sg_id = "sg-09fd46ad01fdbe8a3"
 }
