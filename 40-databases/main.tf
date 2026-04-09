@@ -34,6 +34,6 @@ resource "terraform_data" "bootstrap" {
         "chmod +x /tmp/bootstrap.sh",
         "sudo su  /tmp/bootstrap.sh"
     ]
-    command = "bootstrap-hosts.sh"
+    
   }
 }
