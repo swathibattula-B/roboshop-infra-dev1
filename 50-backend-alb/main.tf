@@ -6,7 +6,7 @@ resource "aws_lb" "backend_alb" {
   subnets            = local.private_subnet_ids
 
   # keeping it as false, just to delete using terraform while practice
-  enable_deletion_protection = true
+  enable_deletion_protection = false
 
   tags = merge(
     {
