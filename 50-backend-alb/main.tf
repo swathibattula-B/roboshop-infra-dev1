@@ -1,4 +1,4 @@
-resource "aws_lb" "test" {
+resource "aws_lb" "backend_alb" {
   name               = "${var.project}-${var.environment}"  #reboshop-dev
   internal           = true
   load_balancer_type = "application"
@@ -7,11 +7,42 @@ resource "aws_lb" "test" {
 
   enable_deletion_protection = false
 
-  
+  tags = merge(
+    {
+        Name = "${var.project}-${var.environment}"
+    },
+    local.common_tags
+  )
+}
 
-  tags = common_tags = {
-        Project = var.project
-        Environment = var.environment
-        Terraform = "true"
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.backend_alb.arn
+  port              = "80"
+  protocol          = "HTTP"
+  type = "fixed-response"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.front_end.arn
+  }
+
+  fixed_response {
+      content_type = "text/html"
+      message_body = "<h1>hi, iam from HTTP backend_alb</h1>"
+      status_code  = "200"
     }
+  
+}
+
+resource "aws_route53_record" "www" {
+  zone_id = var.zone_id
+  name    = "*.backend-alb-${var.environment}.${var.domain_name}"
+  type    = "A"
+
+#load balancer details
+  alias {
+    name                   = aws_lb.backend_alb.dns_name
+    zone_id                = aws_lb.backend_alb.zone_id
+    evaluate_target_health = true
+  }
 }
