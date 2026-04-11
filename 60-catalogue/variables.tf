@@ -13,3 +13,7 @@ variable "domain_name" {
     default = "daws88ss.online"
 }
 
+variable "app_version" {
+    default = "v3"
+}
+

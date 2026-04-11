@@ -32,7 +32,7 @@ resource "terraform_data" "catalogue" {
   provisioner "remote-exec" {
     inline = [
         "chmod +x /tmp/bootstrap.sh",
-        "sudo sh /tmp/bootstrap.sh catalogue dev"
+        "sudo sh /tmp/bootstrap.sh catalogue ${var.environment} ${var.app_version}"
     ]
   }
 }
@@ -44,7 +44,8 @@ resource "aws_ec2_instance_state" "catalogue" {
 }
 
 resource "aws_ami_from_instance" "catalogue" {
-  name               = "${var.project}-${var.environment}-catalogue"
+  # roboshop-dev-catalogue-v3-i-h468sghy
+  name               = "${var.project}-${var.environment}-catalogue-${var.app_version}-${aws_instance.catalogue.id}"
   source_instance_id = aws_instance.catalogue.id
   depends_on = [aws_ec2_instance_state.catalogue]
   tags = merge(
@@ -54,12 +55,14 @@ resource "aws_ami_from_instance" "catalogue" {
     local.common_tags
   )
 }
+
 resource "aws_lb_target_group" "catalogue" {
   name     = "${var.project}-${var.environment}-catalogue"
   port     = 8080
   protocol = "HTTP"
   vpc_id   = local.vpc_id
   deregistration_delay = 60
+
   health_check {
     healthy_threshold = 2
     interval = 10
@@ -74,52 +77,47 @@ resource "aws_lb_target_group" "catalogue" {
 
 resource "aws_launch_template" "catalogue" {
   name = "${var.project}-${var.environment}-catalogue"
-
   image_id = aws_ami_from_instance.catalogue.id
 
-  # once autoscallings sees less traffic it will terminate instance
+  # once autoscaling sees less traffic, it will terminate the instance
   instance_initiated_shutdown_behavior = "terminate"
   instance_type = "t3.micro"
   vpc_security_group_ids = [local.catalogue_sg_id]
 
   # each time we apply terraform this version will be updated as default
-  update_default_version  = true
-
+  update_default_version = true
+  
   # tags for instances created by launch template through autoscaling
   tag_specifications {
     resource_type = "instance"
 
-    tags =  merge(
-      {
-        Name = "${var.project}-${var.environment}-catalogue"
-        
-      },
-      local.common_tags
-    )  
+    tags = merge(
+        {
+            Name = "${var.project}-${var.environment}-catalogue"
+        },
+        local.common_tags
+    )
   }
-
   # tags for volumes created by instances
   tag_specifications {
     resource_type = "volume"
 
-    tags =  merge(
-      {
-        Name = "${var.project}-${var.environment}-catalogue"
-        
-      },
-      local.common_tags
-    )  
+    tags = merge(
+        {
+            Name = "${var.project}-${var.environment}-catalogue"
+        },
+        local.common_tags
+    )
   }
-
   # tags for launch template
   tags = merge(
-      {
-        Name = "${var.project}-${var.environment}-catalogue"
-        
-      },
-      local.common_tags
-  )  
+        {
+            Name = "${var.project}-${var.environment}-catalogue"
+        },
+        local.common_tags
+    )
 }
+
 resource "aws_autoscaling_group" "catalogue" {
   name                      = "${var.project}-${var.environment}-catalogue"
   max_size                  = 10
@@ -128,10 +126,12 @@ resource "aws_autoscaling_group" "catalogue" {
   health_check_type         = "ELB"
   desired_capacity          = 1
   force_delete              = false
+
   launch_template {
     id      = aws_launch_template.catalogue.id
     version = "$Latest"
   }
+
   
   vpc_zone_identifier       = [local.private_subnet_id]
   target_group_arns = [aws_lb_target_group.catalogue.arn]
@@ -145,29 +145,30 @@ resource "aws_autoscaling_group" "catalogue" {
   }
 
   dynamic "tag" {
-    for_each  =  merge(
-      {
-        Name = "${var.project}-${var.environment}-catalogue" 
-      },
-      local.common_tags
+    for_each = merge(
+        {
+            Name = "${var.project}-${var.environment}-catalogue"
+        },
+        local.common_tags
     )
     content {
       key                 = tag.key
       value               = tag.value
       propagate_at_launch = true
     }
-    
   }
 
+  # with in 15min autoscaling should be successful
   timeouts {
     delete = "15m"
   }
-} 
+}
 
 resource "aws_autoscaling_policy" "catalogue" {
   autoscaling_group_name = aws_autoscaling_group.catalogue.name
-  name                   = "${var.project}-${var.environment}-catalogue" 
+  name                   = "${var.project}-${var.environment}-catalogue"
   policy_type            = "TargetTrackingScaling"
+  estimated_instance_warmup = 120
 
   target_tracking_configuration {
     predefined_metric_specification {
@@ -178,6 +179,7 @@ resource "aws_autoscaling_policy" "catalogue" {
   }
 }
 
+# This depends on target group
 resource "aws_lb_listener_rule" "catalogue" {
   listener_arn = local.backend_alb_listener_arn
   priority     = 10
@@ -189,7 +191,7 @@ resource "aws_lb_listener_rule" "catalogue" {
 
   condition {
     host_header {
-      values = ["catalogue-backend-backend-alb-${var.environment}.${var.domain_name}"]
+      values = ["catalogue.backend-alb-${var.environment}.${var.domain_name}"]
     }
   }
 }
