@@ -1,4 +1,4 @@
-resource "aws_instance" "catalogue" {
+rresource "aws_instance" "catalogue" {
   ami           = local.ami_id
   instance_type = "t3.micro"
   subnet_id = local.private_subnet_id
@@ -32,8 +32,7 @@ resource "terraform_data" "catalogue" {
   provisioner "remote-exec" {
     inline = [
         "chmod +x /tmp/bootstrap.sh",
-        "sudo sh /tmp/bootstrap.sh catalogue ${var.environment}"
+        "sudo sh /tmp/bootstrap.sh catalogue dev"
     ]
   }
 }
-
