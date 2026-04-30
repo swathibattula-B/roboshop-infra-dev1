@@ -10,16 +10,11 @@ variable "sg_name" {
     default = [
        # Databases
         "mongodb", "redis", "mysql", "rabbitmq",
-        # Backend
-        "catalogue", "user", "cart", "shipping", "payment",
-        # Backend ALB
-        "backend_alb",
-        # Frontend
-        "frontend",
-        # Frontend ALB
-        "frontend_alb",
+        "ingress_alb",
         # Bastion
         "bastion",
+        "open-vpn",
+        "eks_control_plane","eks_node"
         
     ]   
 }
